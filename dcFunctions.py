@@ -279,6 +279,40 @@ def simpleCSVWrite(dotaData, selection, fileName):
     b.close()
 
 
+# Takes input of dotaData and selected values and writes them to a .csv
+def simpleCSVAppend(dotaData, selection, fileName):
+    writeData = []
+
+    for x in range(0, len(selection)):
+        # Create a string with relevant match information
+        matchData = [str(dotaData.get('result').get('matches')[selection[x]].get('match_seq_num')),
+                     dotaData.get('result').get('matches')[selection[x]].get('radiant_win'),
+                     str(dotaData.get('result').get('matches')[selection[x]].get('duration')),
+                     str(dotaData.get('result').get('matches')[selection[x]].get('lobby_type')),
+                     str(dotaData.get('result').get('matches')[selection[x]].get('game_mode'))]
+
+        # Create a string with all relevant player information
+        for y in range(0, 10):
+            playerData = [str(dotaData.get('result').get('matches')[selection[x]].get('players')[y].get('hero_id')),
+                          str(dotaData.get('result').get('matches')[selection[x]].get('players')[y].get(
+                                  'leaver_status'))]
+
+            # Append player data to match data
+            matchData += playerData
+
+        # Append match data to writeData
+        writeData.append(matchData)
+
+    # Testing
+    # print(writeData)
+
+    # Writing to CSV file
+    b = open((fileName + '.csv'), 'a')
+    a = csv.writer(b)
+    a.writerows(writeData)
+    b.close()
+
+
 # Generates a filename using the current date and time
 def getFileName():
     currTime = datetime.now()
