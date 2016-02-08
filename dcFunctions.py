@@ -517,7 +517,7 @@ def contCollect():
             if status != 1:
                 print('Error with data request.')
                 fileAppend(logName, '\nError with request at {0}'.format(str(datetime.now().time())))
-                time.sleep(2)
+                time.sleep(3)
 
             # If succesful, continue
             else:
@@ -554,7 +554,7 @@ def contCollect():
         except:
             print('Error with request, trying again.')
             fileAppend(logName, '\nError with request at {0}'.format(str(datetime.now().time())))
-            time.sleep(2)
+            time.sleep(3)
 
 # Get most recent match sequence number:
 def getRecSeqNum():
@@ -595,3 +595,44 @@ def getRecSeqNum():
             time.sleep(2)
 
     return lastMatchSeqNum
+
+# This function requests hero data from JankDota, and creates a .csv file with the returned data
+def getHeroData():
+
+    # Request data from JankDota
+    api = 'http://api.herostats.io/heroes/all'
+    heroRequest = requests.get(api)
+
+    # Convert json data
+    heroData = json.loads(heroRequest.text)
+
+    # Create filename for .csv
+    currTime = datetime.now()
+    fileName = 'heroData_' + str(currTime.date())
+
+    # Create header for .csv file
+    header = ['ID', 'Name', 'Movespeed', 'MaxDmg', 'MinDmg', 'HP', 'HPRegen', 'Mana', 'ManaRegen',
+              'Armor', 'Range', 'BaseStr', 'BaseAgi', 'BaseInt', 'StrGain', 'AgiGain', 'IntGain', 'PrimaryStat',
+              'BaseAttackTime']
+
+    heroList = []
+
+    for x in range(1,(len(heroData)+1)):
+        heroLine = [heroData[str(x)]['ID'], heroData[str(x)]['Name'], heroData[str(x)]['Movespeed'],
+                    heroData[str(x)]['MaxDmg'], heroData[str(x)]['MinDmg'], heroData[str(x)]['HP'],
+                    heroData[str(x)]['HPRegen'], heroData[str(x)]['Mana'], heroData[str(x)]['ManaRegen'],
+                    heroData[str(x)]['Armor'], heroData[str(x)]['Range'], heroData[str(x)]['BaseStr'],
+                    heroData[str(x)]['BaseAgi'], heroData[str(x)]['BaseInt'], heroData[str(x)]['StrGain'],
+                    heroData[str(x)]['AgiGain'], heroData[str(x)]['IntGain'], heroData[str(x)]['PrimaryStat'],
+                    heroData[str(x)]['BaseAttackTime']]
+
+        heroList.append(heroLine)
+
+    # Writing to CSV file
+    b = open((fileName + '.csv'), 'w')
+    a = csv.writer(b)
+    a.writerow(header)
+    a.writerows(heroList)
+    b.close()
+
+    print('Data written to file: {0}'.format(fileName + '.csv'))
