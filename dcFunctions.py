@@ -1,5 +1,5 @@
 #   Libraries
-import requests, json, csv
+import requests, json, csv, time
 from datetime import datetime
 
 
@@ -22,6 +22,30 @@ def requestSequence(startNum, userKey):
 
     return dotaRequest.text
 
+# Request the most recent single match
+def requestRecent(userKey):
+    # API address and key
+    key = '?key=' + userKey[:32]
+    dotaAPI = 'https://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/v001/'
+
+    # Requests the data
+    # print(dotaAPI + key + sequenceNum)
+    dotaRequest = requests.get(dotaAPI + key)
+
+    return dotaRequest.text
+
+# Request dota data sequence
+def reqSeqNow(userKey):
+
+    # API address and key
+    key = '?key=' + userKey[:32]
+    dotaAPI = 'https://api.steampowered.com/IDOTA2Match_570/GetMatchHistoryBySequenceNum/v0001/'
+
+    # Requests the data
+    # print(dotaAPI + key + sequenceNum)
+    dotaRequest = requests.get(dotaAPI + key)
+
+    return dotaRequest.text
 
 # Reads most recent seqNum
 def readSeqNum():
@@ -93,7 +117,7 @@ def fileAppend(fileName, data):
     fileAppend.write(data)
     fileAppend.close()
 
-    print("File appended.")
+    #print("File appended.")
 
 
 # Takes data and writes it to a file
@@ -228,7 +252,7 @@ def csvWrite(dotaData, selection):
     b.close()
 
 
-import csv
+#import csv
 
 
 # Takes input of dotaData and selected values and writes them to a .csv
@@ -335,3 +359,239 @@ def getKey():
     # Return file content
 
     return fileContent
+
+# Creates and manages the needed initiation files
+def manageInit():
+    # Print menu options
+
+    print('Create/Overwrite files needed to run dotaCollector.py')
+    print('The apiKey file will contain your unique api key from Valve.')
+    print('The startSeqNum file will contain the sequence number of the first match request.')
+    print('')
+
+    validSelection = False
+    while validSelection == False:
+
+        print('1: Create/Overwrite both apiKey and startSeqNum files.')
+        print('2: Create/Overwrite apiKey file.')
+        print('3: Create/Overwrite startSeqNum file.')
+        print('4: Return.')
+
+        # Process menu options
+        try:
+            selection = int(input('Enter selection number (1-4): '))
+
+        except:
+            print('Please enter a number between 1 and 4.')
+
+        if selection > 0 and selection < 5:
+            validSelection = True
+
+        else:
+            print('Please enter a number between 1 and 4.')
+
+    # Create/Overwrite needed files
+
+    if selection == 1 or selection == 2:
+
+        # Create/Overwrite apiKey file with user input
+        fileName = '.apiKey'
+        seqNum = input('Enter api key: ')
+
+        fileWrite = open(fileName, 'w')
+        fileWrite.write(seqNum)
+        fileWrite.close()
+
+
+    if selection ==1 or selection == 3:
+
+        # Create/Overwrite startSeqNum
+        fileName = '.startingSeqNum'
+        seqNum = input('Enter starting sequence number: ')
+
+        fileWrite = open(fileName, 'w')
+        fileWrite.write(seqNum)
+        fileWrite.close()
+
+
+# Dota collector script for bulk collection
+
+def bulkCollect(collCount):
+
+    fileName = getFileName()
+
+    for x in range(0, collCount):
+        print('Request {0}/{1}'.format(x+1,collCount))
+        # Get starting sequence number
+        startSeqNum = readSeqNum()
+        print('Starting sequence number: ' + str(startSeqNum))
+
+        # Request initial data
+        apiKey = getKey()
+        #print('Requesting data.')
+        tempData = requestSequence(startSeqNum, apiKey)
+        #print('Request completed.')
+
+        # Convert json data
+        # print('Converting json data')
+        try:
+            dotaData = json.loads(tempData)
+
+            # Check the status of the request
+            status = dotaData.get('result').get('status')
+
+            # Check if request was succesful
+            if status != 1:
+                print('Error with data request.')
+
+            # If succesful, continue
+            else:
+
+                # Get length of results
+                length = len(dotaData.get('result').get('matches'))
+                #print('Number of matches in result: ' + str(length))
+
+                # Get last seq_num
+                lastMatchSeqNum = dotaData.get('result').get('matches')[length - 1].get('match_seq_num')
+                # print('Last sequence number: ' + str(lastMatchSeqNum))
+
+                # Save most recent sequence number
+                writeSeqNum(str(lastMatchSeqNum))
+                # print('Last sequence number saved.')
+
+                # Filter unwanted data out. Removes matches shorter than 15 mins and fewer than 10 players
+                seqList = filterSeqNum(tempData)
+                #print('Number of valid matches: ' + str(len(seqList)))
+
+                # Write data to .csv
+                # If first time through loop, write header
+                if x == 0:
+                    simpleCSVWrite(dotaData, seqList, fileName)
+
+                # Else just append data
+                else:
+                    simpleCSVAppend(dotaData, seqList, fileName)
+
+                print('Data written to csv file.')
+
+                time.sleep(3)
+
+        except:
+            print('Error with request, trying again.')
+            time.sleep(3)
+
+
+# Dota collector script for continuous collection
+def contCollect():
+
+    fileName = getFileName()
+    logName = 'log_' + fileName
+    apiKey = getKey()
+    contCount = 0
+    totalMatches = 0
+
+    # Create log file
+    fileWrite(logName, 'Request started on {0}'.format(str(datetime.now())))
+
+    # Get most recent sequence numnber
+    startSeqNum = getRecSeqNum()
+    fileAppend(logName, 'Starting sequence number: {0}'.format(startSeqNum))
+    print('Waiting 1 minute for matches...')
+    time.sleep(60)
+
+    # Loop for 24 hours
+    while contCount < 288:
+        print('Request {0}'.format(contCount+1))
+
+        # Request initial data
+        tempData = requestSequence(startSeqNum, apiKey)
+
+        # Convert json data, then write to .csv
+        try:
+            dotaData = json.loads(tempData)
+
+            # Check the status of the request
+            status = dotaData.get('result').get('status')
+
+            # Check if request was succesful
+            if status != 1:
+                print('Error with data request.')
+                fileAppend(logName, '\nError with request at {0}'.format(str(datetime.now().time())))
+                time.sleep(2)
+
+            # If succesful, continue
+            else:
+
+                # Get length of results
+                length = len(dotaData.get('result').get('matches'))
+                #print('Number of matches in result: ' + str(length))
+
+                # Filter unwanted data out. Removes matches shorter than 15 mins and fewer than 10 players
+                seqList = filterSeqNum(tempData)
+                totalMatches += len(seqList)
+                #print('Number of valid matches: ' + str(len(seqList)))
+
+                # Write data to .csv
+                # If first time through loop, write header
+                if contCount == 0:
+                    simpleCSVWrite(dotaData, seqList, fileName)
+                    contCount += 1
+
+                # Else just append data
+                else:
+                    simpleCSVAppend(dotaData, seqList, fileName)
+                    contCount += 1
+
+                print('Data for request {0} written to csv file at {1}.'.format(contCount, str(datetime.now().time())))
+                fileAppend(logName, '\nData for request {0} written to .csv file. Number of valid matching this request: {1}. New total: {2}'.format(contCount+1, len(seqList), totalMatches))
+
+                # Get most recent sequence numnber
+                startSeqNum = getRecSeqNum()
+                fileAppend(logName, 'Next starting sequence number: {0}'.format(startSeqNum))
+
+                time.sleep(300)
+
+        except:
+            print('Error with request, trying again.')
+            fileAppend(logName, '\nError with request at {0}'.format(str(datetime.now().time())))
+            time.sleep(2)
+
+# Get most recent match sequence number:
+def getRecSeqNum():
+
+    apiKey = getKey()
+    success = False
+    failCount = 0
+
+    while success == False and failCount < 10:
+
+        # Request most recent match
+        tempData = requestRecent(apiKey)
+
+        try:
+            dotaData = json.loads(tempData)
+
+            # Check the status of the request
+            status = dotaData.get('result').get('status')
+
+            # Check if request was succesful
+            if status != 1:
+                print('Error with most recent match request.')
+                failCount += 1
+                time.sleep(2)
+
+            else:
+                # Get length of results
+                length = len(dotaData.get('result').get('matches'))
+
+                # Get last seq_num
+                lastMatchSeqNum = dotaData.get('result').get('matches')[length - 1].get('match_seq_num')
+
+                success = True
+
+        except:
+            print('Error with most recent match request.')
+            failCount += 1
+            time.sleep(2)
+
+    return lastMatchSeqNum
