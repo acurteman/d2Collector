@@ -517,7 +517,7 @@ def contCollect():
             if status != 1:
                 print('Error with data request.')
                 fileAppend(logName, '\nError with request at {0}'.format(str(datetime.now().time())))
-                time.sleep(3)
+                time.sleep(30)
 
             # If succesful, continue
             else:
@@ -554,7 +554,7 @@ def contCollect():
         except:
             print('Error with request, trying again.')
             fileAppend(logName, '\nError with request at {0}'.format(str(datetime.now().time())))
-            time.sleep(3)
+            time.sleep(30)
 
 # Get most recent match sequence number:
 def getRecSeqNum():
